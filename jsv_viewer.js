@@ -24,7 +24,8 @@
    *  axis_y_title          | 'Intensity' | Label of y-axis
    *  axis_y_show           | false       | Show y-axis
    *  axis_y_grid           | false       | Show grid along y-axis
-   *  axis_y_lock           | false       | If true, locks axis to minimum y value. If a number locks the y-axis a percentage below 0 (e.g. 0.1 sets the y-axis minimum to 10% of the viewable y-axis scale below 0)
+   *  axis_y_reverse        | *           | Reverse the y-axis so peaks grow downward from the top. * Defaults to true for chart_type '1D-IR', false otherwise
+   *  axis_y_lock          | false       | If true, locks axis to minimum y value. If a number locks the y-axis a percentage below 0 (e.g. 0.1 sets the y-axis minimum to 10% of the viewable y-axis scale below 0)
    *  min_boundaries        | _undefined_ | The minimum/maximum values for the x/y-axis. e.g. {x: [-1, 10], y: [0, 1]}. _Note_: _min_boundaries_ must be set, if only providing peak data.
    *  zoom_max              | 100         | The maximum zoom level
    *  zoombox_show          | true        | Show the zoombox
@@ -67,7 +68,8 @@
     this.axis_x_show    = JSV.default_for(options.axis_x_show, true);
     this.axis_y_grid    = JSV.default_for(options.axis_y_grid, false);
     this.axis_x_grid    = JSV.default_for(options.axis_x_grid, false);
-    // this.axis_y_reverse = JSV.default_for(options.axis_y_reverse, false);
+    // IR spectra are conventionally drawn with peaks growing downward
+    this.axis_y_reverse = JSV.default_for(options.axis_y_reverse, this.chart_type === '1D-IR');
     this.axis_x_reverse = JSV.default_for(options.axis_x_reverse, true);
     // If logical true, locks y axis to minimum y value
     // If a number locks the y axis to a percentage below 0 (e.g. 0.1 sets the y-axis min to 10% of the
@@ -149,14 +151,14 @@
     // Scale hold the current x/y scales
     // NOTE: to reverse axis, reverse the ranges
     this.scale = new JSV.SVScale();
-    this.scale.y.range([this.scaled_height, 0]);
+    this.scale.y.range(this.y_range());
     // this.axis_x_reverse = false
     this.scale.x.range(this.x_range());
 
     // boundary hold the domain extents
     this.boundary = new JSV.SVScale();
     this.boundary.x.range(this.x_range());
-    this.boundary.y.range([this.scaled_height, 0]);
+    this.boundary.y.range(this.y_range());
     this.boundary.clamp(true);
     // Set minimun boundaries
     if (this.min_boundaries) {
@@ -325,6 +327,12 @@
         [JSV.pixel(this.axis_y_gutter), JSV.pixel(width)];
   }
 
+  SpectraViewer.prototype.y_range = function() {
+    return this.axis_y_reverse ?
+        [0, this.scaled_height] :
+        [this.scaled_height, 0];
+  }
+
   /**
    * Resizes the SpectraViewer
    *
@@ -345,8 +353,8 @@
     this.axis_title_font = this.adjust_font(1, undefined, 'bold');
     this.scaled_height = JSV.pixel(this.height - this.axis_x_gutter);
     this.scaled_width  = JSV.pixel(this.width - this.axis_y_gutter);
-    this.scale.y.range([this.scaled_height, 0]);
-    this.boundary.y.range([this.scaled_height, 0]);
+    this.scale.y.range(this.y_range());
+    this.boundary.y.range(this.y_range());
     this.scale.x.range(this.x_range());
     this.boundary.x.range(this.x_range());
 
@@ -1354,10 +1362,13 @@
     const context = this.context;
     const scale = this.scale;
 
+    // Bottom edge of the plot area (range_max so this holds when the y-axis is reversed)
+    const bottom = scale.y.range_max();
+
     // Draw axis line
     context.beginPath();
-    context.moveTo(scale.x.range()[1], scale.y.range()[0]);
-    context.lineTo(scale.x.range()[0], scale.y.range()[0]);
+    context.moveTo(scale.x.range()[1], bottom);
+    context.lineTo(scale.x.range()[0], bottom);
     context.stroke();
     // Set up text
     context.textAlign = 'center';
@@ -1366,17 +1377,17 @@
     // Draw ticks and text
     scale.x.ticks(this.x_tick_count).forEach(function(tick_x) {
       context.beginPath();
-      context.moveTo(scale.x(tick_x), scale.y.range()[0]);
-      context.lineTo(scale.x(tick_x), scale.y.range()[0] + tick_length);
+      context.moveTo(scale.x(tick_x), bottom);
+      context.lineTo(scale.x(tick_x), bottom + tick_length);
       context.stroke();
       const rounded_tick_x = parseFloat(tick_x.toFixed(self.tick_precision));
-      context.fillText(rounded_tick_x, scale.x(tick_x), scale.y.range()[0] + tick_length);
+      context.fillText(rounded_tick_x, scale.x(tick_x), bottom + tick_length);
     });
     // Draw x label
     if (this.axis_x_title) {
       context.font = this.axis_title_font;
       const label_x = scale.x.range_diff() / 2;
-      const label_y = scale.y.range()[0] + (3 * tick_length);
+      const label_y = bottom + (3 * tick_length);
       context.fillText(this.axis_x_title, label_x, label_y)
     }
   }
@@ -1427,7 +1438,7 @@
         context.font = this.axis_title_font;
         // Determine center point of label
         const label_x = scale.x.range()[0] + ((gutter - margin - Number(font_height) / 2) * direction);
-        const label_y = scale.y.range()[0] / 2;
+        const label_y = scale.y.range_max() / 2;
         // Move to center
         context.translate(label_x, label_y);
         // Rotate Label
@@ -1588,7 +1599,8 @@
 
   SpectraViewer.prototype.domains_from_brush_extent = function(extent, use_pixel_ratio) {
     const x_domain = [extent[0][0], extent[1][0]];
-    const y_domain = [extent[0][1], extent[1][1]];
+    // Order min-first: with a reversed y-axis the brush corners invert to [max, min]
+    const y_domain = [Math.min(extent[0][1], extent[1][1]), Math.max(extent[0][1], extent[1][1])];
     return [x_domain, y_domain];
   }
 

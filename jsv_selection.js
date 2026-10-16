@@ -253,7 +253,7 @@
     if ( should_draw_bounds() ) {
       const element = this.elements(1);
       const domains = sv.get_peak_domains(self.peaks(), true);
-      const y = scale.y.range()[0];
+      const y = scale.y.range_max();
       const lower_x = scale.x(element.lower_bound);
       const upper_x = scale.x(element.upper_bound);
       const center = scale.x(element.center());
@@ -308,7 +308,7 @@
     const size = JSV.pixel(10);
     const sv = this.sv;
     if ( self.show_indicators ) {
-      const y = scale.y.range()[0];
+      const y = scale.y.range_max();
       context.save();
       context.translate(0.5, 0.5);
       self.elements().forEach(function(element) {

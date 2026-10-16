@@ -1020,7 +1020,8 @@
 
     // Set initial scales
     this.scale = new JSV.SVScale();
-    this.scale.y.range([this.height, 0]);
+    // Match the main viewer's y direction (reversed for IR)
+    this.scale.y.range(sv.axis_y_reverse ? [0, this.height] : [this.height, 0]);
     let x_range = this.sv.axis_x_reverse ? [this.width, 0] : [0, this.width];
     this.scale.x.range(x_range);
 
