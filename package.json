@@ -1,0 +1,28 @@
+{
+  "name": "jspectraviewer",
+  "version": "1.0.0",
+  "description": "JSpectraViewer - NMR/IR/MS spectrum viewer JavaScript library",
+  "main": "jsv_viewer.js",
+  "files": [
+    "jsv_core.js",
+    "jsv_utils.js",
+    "jsv_viewer.js",
+    "jsv_display.js",
+    "jsv_selection.js",
+    "jsv_assignments.js",
+    "jsv_ui.js",
+    "jsv_bar.js",
+    "jsv_eims.js",
+    "jsv_setup.js",
+    "d3.min.js",
+    "d3.v3.min.js",
+    "xml2json.min.js"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wishartlab/jsv2-nodejs.git"
+  },
+  "keywords": ["nmr", "spectrum", "viewer", "jspectraviewer"],
+  "author": "Wishart Lab",
+  "license": "MIT"
+}
