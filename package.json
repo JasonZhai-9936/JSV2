@@ -1,28 +1,45 @@
 {
-  "name": "jspectraviewer",
-  "version": "1.0.0",
-  "description": "JSpectraViewer - NMR/IR/MS spectrum viewer JavaScript library",
-  "main": "jsv_viewer.js",
-  "files": [
-    "jsv_core.js",
-    "jsv_utils.js",
-    "jsv_viewer.js",
-    "jsv_display.js",
-    "jsv_selection.js",
-    "jsv_assignments.js",
-    "jsv_ui.js",
-    "jsv_bar.js",
-    "jsv_eims.js",
-    "jsv_setup.js",
-    "d3.min.js",
-    "d3.v3.min.js",
-    "xml2json.min.js"
+  "name": "jsv2",
+  "version": "0.6.19",
+  "description": "JSpectraViewer: web-based spectral visualization (NMR, MS, IR, IRIS, UV/Vis) for small-molecule omics",
+  "license": "MIT",
+  "source": "src/library.js",
+  "main": "dist/index.cjs.js",
+  "module": "dist/index.esm.js",
+  "style": "./src/styles/jsv.css",
+  "sideEffects": [
+    "./src/styles/jsv.css"
   ],
+  "exports": {
+    ".": {
+      "import": "./dist/index.esm.js",
+      "require": "./dist/index.cjs.js",
+      "default": "./dist/index.cjs.js"
+    }
+  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/wishartlab/jsv2-nodejs.git"
+    "url": "git+https://github.com/JasonZhai-9936/JSV2.git"
   },
-  "keywords": ["nmr", "spectrum", "viewer", "jspectraviewer"],
-  "author": "Wishart Lab",
-  "license": "MIT"
+  "scripts": {
+    "build": "npm run build:esm && npm run build:cjs",
+    "build:esm": "esbuild src/library.js --bundle --format=esm --external:3dmol --loader:.png=dataurl --loader:.svg=dataurl --loader:.gif=dataurl --outfile=dist/index.esm.js",
+    "build:cjs": "esbuild src/library.js --bundle --format=cjs --platform=browser --external:3dmol --loader:.png=dataurl --loader:.svg=dataurl --loader:.gif=dataurl --outfile=dist/index.cjs.js"
+  },
+  "dependencies": {
+    "3dmol": "^2.5.1",
+    "color-rgba": "^3.0.0",
+    "d3": "^7.9.0",
+    "d3-shape": "^3.2.0",
+    "fast-xml-parser": "^4.5.0",
+    "jquery": "^3.7.1",
+    "x2js": "^3.4.4"
+  },
+  "devDependencies": {
+    "esbuild": "^0.21.5"
+  },
+  "files": [
+    "dist",
+    "src"
+  ]
 }
