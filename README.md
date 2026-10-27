@@ -12,8 +12,6 @@ The library provides three main components:
 - **SpectraViewer1D** displays 1D spectra (NMR, IR, IRIS, UV/Vis, EI-MS, LC-MS).
 - **SpectraViewer2D** displays 2D NMR spectra as contour plots.
 
-JSpectraViewer is developed by the [Wishart Research Group](https://www.wishartlab.com/) at the University of Alberta as part of the [NP-MRD](https://np-mrd.org) project.
-
 ## Supported spectrum types and file formats
 
 | Spectrum | Viewer | Displayed as | File formats |
