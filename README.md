@@ -1,6 +1,6 @@
 # JSpectraViewer (jsv2)
 
-A JavaScript library for interactive, web-based visualization of spectral data for small-molecule omics research.
+A JavaScript library for interactive, web-based visualization of spectral data for small-molecule omics research at [JSpectraViewer.ca](https://jspectraviewer.ca).
 
 ## Overview
 
