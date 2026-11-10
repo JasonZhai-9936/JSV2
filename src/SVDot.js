@@ -1,6 +1,10 @@
 import * as d3 from 'd3';
 import * as JSV from './Utils.js';
-import { SVScale } from './SVScales.js';
+
+// 2D contour levels: CONTOUR_COUNT positive and CONTOUR_COUNT negative levels,
+// each CONTOUR_MULTIPLIER times the previous one
+const CONTOUR_COUNT = 5;
+const CONTOUR_MULTIPLIER = 1.75;
 
 export default class SVDot {
 
@@ -80,22 +84,6 @@ export default class SVDot {
         return Math.sqrt(arr.reduce(r, 0.0) / arr.length)
     }
 
-    find_peaks(z, threshold) {
-        // init variables
-        const signals = Array(z.length).fill(0);
-        let std_dev = this.stddev(z)
-        let av = this.mean(z)
-
-        for(let i = 0; i<z.length; i++){
-            if(z[i] > av + (std_dev * threshold)){
-                signals[i] = 1 // positive peak
-            } else if (z[i] < av - (std_dev * threshold)){
-                signals[i] = -1 // negative peak
-            }
-        }
-        return signals
-    }
-
     // Determine best data to use for drawing based on 'fast' and 'calculate' and the
     // available data in the SVPath.
     data_for_draw() {
@@ -111,88 +99,79 @@ export default class SVDot {
         }
     }
 
+    // Contour levels: CONTOUR_COUNT levels spaced geometrically by CONTOUR_MULTIPLIER,
+    // starting at (standard deviation of the intensities) x threshold. The threshold
+    // is set with the scroll wheel.
+    contour_levels(z, threshold) {
+        if (this._z_stddev === undefined) this._z_stddev = this.stddev(z);
+        const start = this._z_stddev * threshold;
+        const levels = [];
+        for (let i = 0; i < CONTOUR_COUNT; i++) {
+            levels.push(start * CONTOUR_MULTIPLIER ** i);
+        }
+        return levels;
+    }
+
+    // Intensity contours of a row-major grid of values (one row per y value), with
+    // coordinates converted from grid indices to the x/y data units (ppm)
+    calculate_contours(x, y, values, levels) {
+        const contours = d3.contours().size([x.length, y.length]).thresholds(levels)(values);
+        // d3 places grid value i at coordinate i + 0.5; axis values are evenly spaced
+        const to_units = (i, axis) => axis[0] + (i - 0.5) * (axis[1] - axis[0]);
+        contours.forEach((level) => {
+            level.coordinates.forEach((polygon) => polygon.forEach((ring) => ring.forEach((point) => {
+                point[0] = to_units(point[0], x);
+                point[1] = to_units(point[1], y);
+            })));
+        });
+        return contours;
+    }
+
+    draw_contours(context, scale, contours, color) {
+        context.strokeStyle = color;
+        contours.forEach((level) => level.coordinates.forEach((polygon) => polygon.forEach((ring) => {
+            context.beginPath();
+            ring.forEach((point, i) => {
+                const px = scale.x(point[0]);
+                const py = scale.y(point[1]);
+                if (i === 0) {
+                    context.moveTo(px, py);
+                } else {
+                    context.lineTo(px, py);
+                }
+            });
+            context.stroke();
+        })));
+    }
+
     draw(context, scale, fast, scaled_height, x_range, threshold) {
 
-        let draw_countours = (contours) => {
-            contours.forEach(c =>{
-                    if (c.coordinates.length == 0) return;
-                    c.coordinates.forEach( coords => {
-                        context.beginPath();
-                        coords.forEach( contour => {
-                            contour.forEach(coord => {
-                                const x_range = scale.x.range();
-                                const y_range = scale.y.range();
-                                let x_coord = scale.x( this.original_scale.x.invert(coord[0]))
-                                let y_coord = scale.y( this.original_scale.y.invert(coord[1]))
-                                if(x_coord < x_range[1]){
-                                    x_coord = x_range[1]
-                                } else if(x_coord > x_range[0]){
-                                    x_coord = x_range[0]
-                                }
-                                if(y_coord < y_range[0]){
-                                    y_coord = y_range[0]
-                                } else if(y_coord > y_range[1]){
-                                    y_coord = y_range[1]
-                                }
-                                context.lineTo(x_coord, y_coord);
-                            })
-                        })
-                        context.stroke();
-                    })
-                })
-        }
-
         if (this.visible) {
-            let svd = this;
             let data = this.data_for_draw();
 
-            // We will use the first scale provided to calculate contours and later map the results to the current scale
-            if(!this.original_scale){
-                this.original_scale = new SVScale();
-                this.original_scale.x.domain(scale.x.domain());
-                this.original_scale.y.domain(scale.y.domain());
-                this.original_scale.x.range(scale.x.range());
-                this.original_scale.y.range(scale.y.range());
+            // Recalculate the contours only when the contour threshold changes
+            if (this.contour_threshold !== threshold) {
+                this.contour_threshold = threshold;
+                const levels = this.contour_levels(data.z, threshold);
+                // Negative contours are the positive contours of the negated intensities,
+                // so each one encloses a negative peak
+                if (!this._negated_z) this._negated_z = data.z.map((v) => -v);
+                this.positive_contours = this.calculate_contours(data.x, data.y, data.z, levels);
+                this.negative_contours = this.calculate_contours(data.x, data.y, this._negated_z, levels);
             }
 
-            if(!this.old_threshold || this.old_threshold != threshold){
-                this.old_threshold = threshold;
-
-                // find peaks
-                const peakArray = svd.find_peaks(data.z, threshold);
-
-                let positivePeaks = [];
-                let negativePeaks = [];
-
-                // Generate Contours
-                for (let row = 0; row < data.y.length; row++) {
-                    for (let col = 0; col < data.x.length; col++) {
-                        if (peakArray[(data.x.length * row) + col] === -1) {
-                            negativePeaks.push([scale.x(data.x[col]), scale.y(data.y[row])]);
-                        } else if (peakArray[(data.x.length * row) + col] === 1) {
-                            positivePeaks.push([this.original_scale.x(data.x[col]),
-                                this.original_scale.y(data.y[row])]);
-                        }
-                    }
-                }
-
-                this.posContours = d3.contourDensity()
-                    .size([data.x.length * 3, data.y.length * 3])
-                    .bandwidth(8)    // smaller = more precision in lines = more lines
-                    (positivePeaks);
-
-                this.negContours = d3.contourDensity()
-                    .size([data.x.length * 3, data.y.length * 3])
-                    .bandwidth(8)    // smaller = more precision in lines = more lines
-                    (negativePeaks);
-            }
-
-            // Plot contours
+            // Plot contours, clipped to the plot area
+            const x_pixels = scale.x.range();
+            const y_pixels = scale.y.range();
+            context.save();
+            context.beginPath();
+            context.rect(Math.min(...x_pixels), Math.min(...y_pixels),
+                Math.abs(x_pixels[1] - x_pixels[0]), Math.abs(y_pixels[1] - y_pixels[0]));
+            context.clip();
             context.lineWidth = JSV.default_for(this.lineWidth, JSV.line_width_for(this._sv));
-            context.strokeStyle = 'blue';
-            draw_countours(this.posContours);
-            context.strokeStyle = 'red';
-            draw_countours(this.negContours);
+            this.draw_contours(context, scale, this.positive_contours, 'blue');
+            this.draw_contours(context, scale, this.negative_contours, 'red');
+            context.restore();
 
             // avoid doing this too often
             if(!fast) {
