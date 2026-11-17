@@ -47,6 +47,27 @@ import { DataParser, SpectraViewer1D, SpectraViewer2D } from 'jsv2';
 
 D3.js, 3Dmol.js, X2JS, Fast-XML-Parser and jQuery are installed automatically as dependencies. JSmol is optional and only needed if the structure viewer is set to use it instead of 3Dmol.js; it must be loaded separately in the page.
 
+## Generating 2D NMR nmrML files
+
+Two helpers write 2D spectra as nmrML that SpectraViewer2D (and DataParser) can read:
+
+- **predict_hsqc(proton, carbon, options)** predicts a 1H-13C HSQC spectrum from an assigned 1D 1H spectrum and an assigned 1D 13C spectrum of the same compound (the `event.detail` objects from DataParser's `fileParsed` event). Each assigned carbon with bonded hydrogens gives one cross peak at the shifts of those hydrogens and that carbon; quaternary carbons give none. Both files must use the same structure and atom numbering. `options` can set the grid size (`points_1h`, `points_13c`) and Gaussian peak widths in ppm (`width_1h`, `width_13c`).
+- **build_2d_nmrml(spectrum)** returns the nmrML text for a 2D spectrum `{ x, y, z, id, name, experiment, assignment }`, where `x` and `y` are the F2 and F1 axes in ppm and `z` is the row-major intensity grid (one row per `y` value). The output of `predict_hsqc` can be passed straight in; it includes the structure and cross-peak assignments.
+
+```js
+import { DataParser, predict_hsqc, build_2d_nmrml } from 'jsv2';
+
+const spectra = {};
+new DataParser('#proton-file').addEventListener('fileParsed', (e) => { spectra.h = e.detail; });
+new DataParser('#carbon-file').addEventListener('fileParsed', (e) => { spectra.c = e.detail; });
+
+// once both files are parsed
+const hsqc = predict_hsqc(spectra.h, spectra.c);
+const nmrml = build_2d_nmrml(hsqc);
+```
+
+Raw 2D data (FIDs) must be Fourier transformed before it can be written this way. The JSpectraViewer website does this on its server with [nmrglue](https://www.nmrglue.com/), then calls `build_2d_nmrml` in the browser.
+
 ## Citation
 
 If you use JSpectraViewer in your work, please cite:
